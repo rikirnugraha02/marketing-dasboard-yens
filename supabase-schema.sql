@@ -4,6 +4,7 @@
 -- ==============================================================================
 
 -- 1. DROP EXISTING TABLES (IF ANY)
+DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS audit_logs CASCADE;
 DROP TABLE IF EXISTS checkins CASCADE;
 DROP TABLE IF EXISTS kol_slots CASCADE;
@@ -11,6 +12,22 @@ DROP TABLE IF EXISTS deliverables CASCADE;
 DROP TABLE IF EXISTS campaigns CASCADE;
 
 -- 2. CREATE TABLES
+
+-- Users & Accounts Table
+CREATE TABLE users (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  username TEXT NOT NULL UNIQUE,
+  password TEXT NOT NULL,
+  role_label TEXT NOT NULL,
+  role TEXT NOT NULL,
+  avatar TEXT,
+  email TEXT,
+  phone TEXT,
+  is_super_admin BOOLEAN DEFAULT FALSE,
+  allowed_tabs JSONB DEFAULT '["command-center", "campaigns-hub", "daily-checkins"]'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
 -- Campaigns Table
 CREATE TABLE campaigns (
@@ -90,12 +107,14 @@ CREATE TABLE audit_logs (
 );
 
 -- 3. ENABLE ROW LEVEL SECURITY (RLS) WITH PUBLIC ACCESS POLICIES
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE campaigns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE deliverables ENABLE ROW LEVEL SECURITY;
 ALTER TABLE kol_slots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE checkins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
+CREATE POLICY "Public full access to users" ON users FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Public full access to campaigns" ON campaigns FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Public full access to deliverables" ON deliverables FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Public full access to kol_slots" ON kol_slots FOR ALL USING (true) WITH CHECK (true);
@@ -103,6 +122,7 @@ CREATE POLICY "Public full access to checkins" ON checkins FOR ALL USING (true) 
 CREATE POLICY "Public full access to audit_logs" ON audit_logs FOR ALL USING (true) WITH CHECK (true);
 
 -- 4. ENABLE REALTIME BROADCAST
+ALTER PUBLICATION supabase_realtime ADD TABLE users;
 ALTER PUBLICATION supabase_realtime ADD TABLE campaigns;
 ALTER PUBLICATION supabase_realtime ADD TABLE deliverables;
 ALTER PUBLICATION supabase_realtime ADD TABLE kol_slots;
@@ -110,6 +130,75 @@ ALTER PUBLICATION supabase_realtime ADD TABLE checkins;
 ALTER PUBLICATION supabase_realtime ADD TABLE audit_logs;
 
 -- 5. INSERT INITIAL SEED DATA (NOVEMBER 2026)
+
+-- Users Seed
+INSERT INTO users (id, name, username, password, role_label, role, avatar, email, phone, is_super_admin, allowed_tabs)
+VALUES
+(
+  'riki',
+  'Riki',
+  'riki',
+  'riki123',
+  'Head of Marketing',
+  'head_of_marketing',
+  'RK',
+  'riki.marketing@yensbaby.id',
+  '+62 811-2345-6789',
+  TRUE,
+  '["command-center", "campaigns-hub", "approval-center", "daily-checkins", "monthly-report", "user-management"]'::jsonb
+),
+(
+  'alvi',
+  'Alvi',
+  'alvi',
+  'alvi123',
+  'Social Media Coordinator',
+  'socmed_coordinator',
+  'AL',
+  'alvi.socmed@yensbaby.id',
+  '+62 812-3456-7890',
+  FALSE,
+  '["command-center", "campaigns-hub", "daily-checkins"]'::jsonb
+),
+(
+  'syntia',
+  'Syntia',
+  'syntia',
+  'syntia123',
+  'SocMed Execution & Ops',
+  'socmed_exec_ops',
+  'SY',
+  'syntia.ops@yensbaby.id',
+  '+62 813-4567-8901',
+  FALSE,
+  '["command-center", "campaigns-hub", "daily-checkins"]'::jsonb
+),
+(
+  'joe',
+  'Joe',
+  'joe',
+  'joe123',
+  'Social Media Execution',
+  'socmed_exec',
+  'JO',
+  'joe.creative@yensbaby.id',
+  '+62 815-5678-9012',
+  FALSE,
+  '["command-center", "campaigns-hub", "daily-checkins"]'::jsonb
+),
+(
+  'fanny',
+  'Fanny',
+  'fanny',
+  'fanny123',
+  'Marketing & Partnership',
+  'marketing_partnership',
+  'FA',
+  'fanny.partner@yensbaby.id',
+  '+62 817-6789-0123',
+  FALSE,
+  '["command-center", "campaigns-hub", "daily-checkins", "monthly-report"]'::jsonb
+);
 
 -- Campaigns Seed
 INSERT INTO campaigns (id, title, brand_partner, period_start, period_end, kpi_label, target_value, actual_value, stores, status, brief, event_readiness)

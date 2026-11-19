@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
   CURRENT_DATE,
-  TEAM_MEMBERS,
+  INITIAL_USERS,
+  ALL_AVAILABLE_TABS,
   INITIAL_CAMPAIGNS,
   INITIAL_DELIVERABLES,
   INITIAL_KOL_SLOTS,
@@ -17,13 +18,15 @@ import {
   fromDbDeliverable, toDbDeliverable,
   fromDbKol, toDbKol,
   fromDbCheckin, toDbCheckin,
-  fromDbAudit, toDbAudit
+  fromDbAudit, toDbAudit,
+  fromDbUser, toDbUser
 } from '../utils/supabaseAdapter';
 
 const AppContext = createContext();
 
 const STORAGE_KEYS = {
-  ROLE: 'yens_active_role',
+  USERS: 'yens_users',
+  AUTH_USER: 'yens_auth_user',
   CAMPAIGNS: 'yens_campaigns',
   DELIVERABLES: 'yens_deliverables',
   KOL_SLOTS: 'yens_kol_slots',
@@ -32,32 +35,53 @@ const STORAGE_KEYS = {
 };
 
 export const AppProvider = ({ children }) => {
-  // Active User / Role
-  const [currentUserId, setCurrentUserId] = useState(() => {
-    return localStorage.getItem(STORAGE_KEYS.ROLE) || 'riki';
+  // 1. Users state
+  const [users, setUsers] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.USERS);
+    return saved ? JSON.parse(saved) : INITIAL_USERS;
   });
 
-  // Main state with localStorage fallback
+  // 2. Authenticated user
+  const [currentUser, setCurrentUser] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return null;
+      }
+    }
+    // Default to Riki for instant preview if preferred or require explicit login
+    // Let's check: user asked "jdi tiap user punya account, harus login dulu"
+    // To require login, currentUser is null unless saved in localStorage!
+    return null;
+  });
+
+  // 3. Campaigns state
   const [campaigns, setCampaigns] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CAMPAIGNS);
     return saved ? JSON.parse(saved) : INITIAL_CAMPAIGNS;
   });
 
+  // 4. Deliverables state
   const [deliverables, setDeliverables] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.DELIVERABLES);
     return saved ? JSON.parse(saved) : INITIAL_DELIVERABLES;
   });
 
+  // 5. KOL Slots state
   const [kolSlots, setKolSlots] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.KOL_SLOTS);
     return saved ? JSON.parse(saved) : INITIAL_KOL_SLOTS;
   });
 
+  // 6. Checkins state
   const [checkins, setCheckins] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CHECKINS);
     return saved ? JSON.parse(saved) : INITIAL_CHECKINS;
   });
 
+  // 7. Audit Logs state
   const [auditLogs, setAuditLogs] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS);
     return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
@@ -72,10 +96,18 @@ export const AppProvider = ({ children }) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Sync to LocalStorage (Always acts as offline backup)
+  // Sync to LocalStorage
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.ROLE, currentUserId);
-  }, [currentUserId]);
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+  }, [users]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(STORAGE_KEYS.AUTH_USER, JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.CAMPAIGNS, JSON.stringify(campaigns));
@@ -104,7 +136,8 @@ export const AppProvider = ({ children }) => {
     try {
       setIsSyncing(true);
 
-      const [cRes, dRes, kRes, chRes, aRes] = await Promise.all([
+      const [uRes, cRes, dRes, kRes, chRes, aRes] = await Promise.all([
+        supabase.from('users').select('*').order('created_at', { ascending: true }),
         supabase.from('campaigns').select('*').order('created_at', { ascending: true }),
         supabase.from('deliverables').select('*').order('created_at', { ascending: false }),
         supabase.from('kol_slots').select('*').order('created_at', { ascending: true }),
@@ -112,6 +145,9 @@ export const AppProvider = ({ children }) => {
         supabase.from('audit_logs').select('*').order('created_at', { ascending: false })
       ]);
 
+      if (uRes.data && uRes.data.length > 0) {
+        setUsers(uRes.data.map(fromDbUser));
+      }
       if (cRes.data && cRes.data.length > 0) {
         setCampaigns(cRes.data.map(fromDbCampaign));
       }
@@ -143,6 +179,19 @@ export const AppProvider = ({ children }) => {
     // Subscribe to all changes
     const channel = supabase
       .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'users' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setUsers(prev => [...prev.filter(x => x.id !== payload.new.id), fromDbUser(payload.new)]);
+          } else if (payload.eventType === 'UPDATE') {
+            setUsers(prev => prev.map(x => x.id === payload.new.id ? fromDbUser(payload.new) : x));
+          } else if (payload.eventType === 'DELETE') {
+            setUsers(prev => prev.filter(x => x.id !== payload.old.id));
+          }
+        }
+      )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'deliverables' },
@@ -198,13 +247,68 @@ export const AppProvider = ({ children }) => {
     };
   }, [fetchCloudData]);
 
-  const currentUser = TEAM_MEMBERS.find(m => m.id === currentUserId) || TEAM_MEMBERS[0];
+  // Auth Functions
+  const login = (inputUsername, inputPassword) => {
+    const matched = users.find(
+      u => u.username.toLowerCase() === inputUsername.trim().toLowerCase() && u.password === inputPassword.trim()
+    );
 
-  // Actions with Supabase Cloud Sync
+    if (matched) {
+      setCurrentUser(matched);
+      // Set active tab to first allowed tab
+      const firstTab = matched.allowedTabs && matched.allowedTabs.length > 0 
+        ? matched.allowedTabs[0] 
+        : 'command-center';
+      setActiveTab(firstTab);
+      return true;
+    }
+    return false;
+  };
+
+  const logout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
+    setActiveTab('command-center');
+  };
+
+  // User Management Actions (Super Admin Riki)
+  const addUser = async (newUserData) => {
+    const item = {
+      ...newUserData,
+      id: newUserData.id || `usr-${Date.now()}`
+    };
+
+    setUsers(prev => [...prev, item]);
+
+    if (isSupabaseConfigured && supabase) {
+      await supabase.from('users').insert(toDbUser(item));
+    }
+  };
+
+  const updateUser = async (userId, updatedData) => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updatedData } : u));
+
+    if (currentUser && currentUser.id === userId) {
+      setCurrentUser(prev => ({ ...prev, ...updatedData }));
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      await supabase.from('users').update(toDbUser({ id: userId, ...updatedData })).eq('id', userId);
+    }
+  };
+
+  const deleteUser = async (userId) => {
+    setUsers(prev => prev.filter(u => u.id !== userId));
+
+    if (isSupabaseConfigured && supabase) {
+      await supabase.from('users').delete().eq('id', userId);
+    }
+  };
+
+  // Deliverable Actions
   const approveDeliverable = async (deliverableId, note = "Approved by Head of Marketing") => {
     const updatedStatus = 'Approved';
     
-    // Optimistic local update
     setDeliverables(prev =>
       prev.map(item => item.id === deliverableId ? { ...item, status: updatedStatus, revisionNotes: '' } : item)
     );
@@ -215,14 +319,13 @@ export const AppProvider = ({ children }) => {
       deliverableId,
       deliverableTitle: target?.title || deliverableId,
       action: 'Approved',
-      actorId: currentUser.id,
-      actorName: `${currentUser.name} (${currentUser.roleLabel})`,
+      actorId: currentUser?.id || 'riki',
+      actorName: `${currentUser?.name || 'Riki'} (${currentUser?.roleLabel || 'Head of Marketing'})`,
       timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
       note: note || "Deliverable approved for rollout."
     };
     setAuditLogs(prev => [newLog, ...prev]);
 
-    // Push to Supabase if configured
     if (isSupabaseConfigured && supabase) {
       await supabase.from('deliverables').update({
         status: updatedStatus,
@@ -236,7 +339,6 @@ export const AppProvider = ({ children }) => {
   const requestRevision = async (deliverableId, revisionNote) => {
     if (!revisionNote) return;
 
-    // Optimistic local update
     setDeliverables(prev =>
       prev.map(item => item.id === deliverableId ? { ...item, status: 'Revision', revisionNotes: revisionNote } : item)
     );
@@ -247,14 +349,13 @@ export const AppProvider = ({ children }) => {
       deliverableId,
       deliverableTitle: target?.title || deliverableId,
       action: 'Revision Requested',
-      actorId: currentUser.id,
-      actorName: `${currentUser.name} (${currentUser.roleLabel})`,
+      actorId: currentUser?.id || 'riki',
+      actorName: `${currentUser?.name || 'Riki'} (${currentUser?.roleLabel || 'Head of Marketing'})`,
       timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
       note: revisionNote
     };
     setAuditLogs(prev => [newLog, ...prev]);
 
-    // Push to Supabase if configured
     if (isSupabaseConfigured && supabase) {
       await supabase.from('deliverables').update({
         status: 'Revision',
@@ -286,7 +387,6 @@ export const AppProvider = ({ children }) => {
       submittedAt: new Date().toISOString()
     };
     
-    // Optimistic local update
     setDeliverables(prev => [item, ...prev]);
 
     const newLog = {
@@ -294,14 +394,13 @@ export const AppProvider = ({ children }) => {
       deliverableId: item.id,
       deliverableTitle: item.title,
       action: 'Created',
-      actorId: currentUser.id,
-      actorName: `${currentUser.name} (${currentUser.roleLabel})`,
+      actorId: currentUser?.id || 'riki',
+      actorName: `${currentUser?.name || 'Riki'} (${currentUser?.roleLabel || 'Head of Marketing'})`,
       timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
       note: `Added task under campaign: ${item.campaignId}`
     };
     setAuditLogs(prev => [newLog, ...prev]);
 
-    // Push to Supabase if configured
     if (isSupabaseConfigured && supabase) {
       await supabase.from('deliverables').insert(toDbDeliverable(item));
       await supabase.from('audit_logs').insert(toDbAudit(newLog));
@@ -330,7 +429,7 @@ export const AppProvider = ({ children }) => {
     const newCheckin = {
       ...checkinData,
       id: `chk-${Date.now()}`,
-      userId: currentUser.id,
+      userId: currentUser?.id || 'riki',
       date: CURRENT_DATE,
       timestamp: new Date().toISOString(),
       resolved: !checkinData.hasBlocker
@@ -362,14 +461,16 @@ export const AppProvider = ({ children }) => {
   };
 
   const resetAllData = async () => {
-    localStorage.removeItem(STORAGE_KEYS.ROLE);
+    localStorage.removeItem(STORAGE_KEYS.USERS);
+    localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
     localStorage.removeItem(STORAGE_KEYS.CAMPAIGNS);
     localStorage.removeItem(STORAGE_KEYS.DELIVERABLES);
     localStorage.removeItem(STORAGE_KEYS.KOL_SLOTS);
     localStorage.removeItem(STORAGE_KEYS.CHECKINS);
     localStorage.removeItem(STORAGE_KEYS.AUDIT_LOGS);
 
-    setCurrentUserId('riki');
+    setUsers(INITIAL_USERS);
+    setCurrentUser(null);
     setCampaigns(INITIAL_CAMPAIGNS);
     setDeliverables(INITIAL_DELIVERABLES);
     setKolSlots(INITIAL_KOL_SLOTS);
@@ -395,9 +496,15 @@ export const AppProvider = ({ children }) => {
     <AppContext.Provider
       value={{
         currentDate: CURRENT_DATE,
-        teamMembers: TEAM_MEMBERS,
+        users,
+        teamMembers: users, // Dynamic backwards-compatible alias
         currentUser,
-        setCurrentUserId,
+        setCurrentUser,
+        login,
+        logout,
+        addUser,
+        updateUser,
+        deleteUser,
         campaigns,
         deliverables,
         kolSlots,

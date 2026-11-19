@@ -11,6 +11,7 @@ import {
   Database,
   Cloud,
   MessageSquare,
+  LogOut,
   ExternalLink
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -19,6 +20,7 @@ import { formatDateTime } from '../utils/formatters';
 export const Header = () => {
   const { 
     currentUser, 
+    logout,
     setIsCheckinModalOpen, 
     setIsCloudModalOpen,
     setIsNotifModalOpen,
@@ -240,17 +242,34 @@ export const Header = () => {
 
           {/* Active User Avatar Chip */}
           <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-            <div className="w-8 h-8 rounded-full bg-[#1B365D] text-white text-xs font-bold flex items-center justify-center ring-2 ring-[#F26522]/30">
-              {currentUser.avatar}
+            <div className={`w-8 h-8 rounded-full text-white text-xs font-bold flex items-center justify-center ring-2 ${
+              currentUser?.isSuperAdmin ? 'bg-amber-500 ring-amber-300 text-slate-900 font-black' : 'bg-[#1B365D] ring-[#F26522]/30'
+            }`}>
+              {currentUser?.avatar || 'YM'}
             </div>
             <div className="hidden md:block text-left">
               <div className="text-xs font-bold text-slate-800 leading-tight flex items-center gap-1">
-                {currentUser.name}
+                <span>{currentUser?.name}</span>
+                {currentUser?.isSuperAdmin && (
+                  <span className="text-[10px] text-amber-600 font-extrabold">👑</span>
+                )}
               </div>
               <div className="text-[10px] text-slate-500 font-medium">
-                {currentUser.roleLabel}
+                {currentUser?.roleLabel}
               </div>
             </div>
+
+            <button
+              onClick={() => {
+                if (window.confirm("Keluar dari dashboard Yen's Marketing?")) {
+                  logout();
+                }
+              }}
+              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors ml-1"
+              title="Logout / Keluar"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
 
         </div>

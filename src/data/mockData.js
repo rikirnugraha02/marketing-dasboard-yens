@@ -1,52 +1,83 @@
 export const CURRENT_DATE = "2026-11-19";
 
-export const TEAM_MEMBERS = [
+export const ALL_AVAILABLE_TABS = [
+  { id: "command-center", label: "Command Center / My Workspace", description: "Ringkasan metrik, tugas harian, dan approval queue" },
+  { id: "campaigns-hub", label: "Campaigns Hub", description: "Katalog program brand partner, brief, deliverables & event" },
+  { id: "approval-center", label: "Approval Center", description: "Pusat persetujuan konten, draft review & log audit" },
+  { id: "daily-checkins", label: "Daily Stand-Up & Check-In", description: "Laporan harian tim, tracking blocker, dan koordinasi" },
+  { id: "monthly-report", label: "November Report & Analytics", description: "Laporan eksekutif, grafik analitik, dan export CSV" },
+  { id: "user-management", label: "Pengaturan Tim & Pengguna", description: "Kelola akun pengguna, username, password, dan hak akses (Super Admin)" }
+];
+
+export const INITIAL_USERS = [
   { 
     id: "riki", 
+    username: "riki",
+    password: "riki123",
     name: "Riki", 
     roleLabel: "Head of Marketing", 
     role: "head_of_marketing", 
     avatar: "RK",
     email: "riki.marketing@yensbaby.id",
-    phone: "+62 811-2345-6789"
+    phone: "+62 811-2345-6789",
+    isSuperAdmin: true,
+    allowedTabs: ["command-center", "campaigns-hub", "approval-center", "daily-checkins", "monthly-report", "user-management"]
   },
   { 
     id: "alvi", 
+    username: "alvi",
+    password: "alvi123",
     name: "Alvi", 
     roleLabel: "Social Media Coordinator", 
     role: "socmed_coordinator", 
     avatar: "AL",
     email: "alvi.socmed@yensbaby.id",
-    phone: "+62 812-3456-7890"
+    phone: "+62 812-3456-7890",
+    isSuperAdmin: false,
+    allowedTabs: ["command-center", "campaigns-hub", "daily-checkins"]
   },
   { 
     id: "syntia", 
+    username: "syntia",
+    password: "syntia123",
     name: "Syntia", 
     roleLabel: "SocMed Execution & Ops", 
     role: "socmed_exec_ops", 
     avatar: "SY",
     email: "syntia.ops@yensbaby.id",
-    phone: "+62 813-4567-8901"
+    phone: "+62 813-4567-8901",
+    isSuperAdmin: false,
+    allowedTabs: ["command-center", "campaigns-hub", "daily-checkins"]
   },
   { 
     id: "joe", 
+    username: "joe",
+    password: "joe123",
     name: "Joe", 
     roleLabel: "Social Media Execution", 
     role: "socmed_exec", 
     avatar: "JO",
     email: "joe.creative@yensbaby.id",
-    phone: "+62 815-5678-9012"
+    phone: "+62 815-5678-9012",
+    isSuperAdmin: false,
+    allowedTabs: ["command-center", "campaigns-hub", "daily-checkins"]
   },
   { 
     id: "fanny", 
+    username: "fanny",
+    password: "fanny123",
     name: "Fanny", 
     roleLabel: "Marketing & Partnership", 
     role: "marketing_partnership", 
     avatar: "FA",
     email: "fanny.partner@yensbaby.id",
-    phone: "+62 817-6789-0123"
+    phone: "+62 817-6789-0123",
+    isSuperAdmin: false,
+    allowedTabs: ["command-center", "campaigns-hub", "daily-checkins", "monthly-report"]
   }
 ];
+
+export const TEAM_MEMBERS = INITIAL_USERS;
 
 export const INITIAL_CAMPAIGNS = [
   {

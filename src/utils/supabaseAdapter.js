@@ -133,3 +133,32 @@ export const toDbAudit = (a) => ({
   timestamp: a.timestamp,
   note: a.note || ''
 });
+
+
+export const fromDbUser = (u) => ({
+  id: u.id,
+  name: u.name,
+  username: u.username,
+  password: u.password,
+  roleLabel: u.role_label,
+  role: u.role,
+  avatar: u.avatar || (u.name ? u.name.substring(0, 2).toUpperCase() : 'YM'),
+  email: u.email || '',
+  phone: u.phone || '',
+  isSuperAdmin: Boolean(u.is_super_admin),
+  allowedTabs: Array.isArray(u.allowed_tabs) ? u.allowed_tabs : ['command-center', 'campaigns-hub', 'daily-checkins']
+});
+
+export const toDbUser = (u) => ({
+  id: u.id,
+  name: u.name,
+  username: u.username,
+  password: u.password,
+  role_label: u.roleLabel,
+  role: u.role,
+  avatar: u.avatar,
+  email: u.email,
+  phone: u.phone,
+  is_super_admin: Boolean(u.isSuperAdmin),
+  allowed_tabs: u.allowedTabs
+});

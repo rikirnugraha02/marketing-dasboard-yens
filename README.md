@@ -1,58 +1,47 @@
 # Yen's Marketing Command Center (November 2026)
 
-Aplikasi web dashboard eksekutif dan pusat kendali tim marketing **Yen's Baby & Kid Shop** berbasis **React**, **Tailwind CSS**, dan **lucide-react**, dilengkapi persistensi data interaktif menggunakan `localStorage`.
+Aplikasi web dashboard eksekutif dan pusat kendali tim marketing **Yen's Baby & Kid Shop** berbasis **React**, **Tailwind CSS**, **lucide-react**, dan **Supabase Realtime Database** dengan sistem autentikasi akun & Role-Based Access Control (RBAC).
 
 ---
 
-## 🚀 Cara Menjalankan Aplikasi
+## 🔐 Kredensial Login Akun Tim
 
-Aplikasi saat ini sudah aktif berjalan di:
-- **URL Lokal**: [http://localhost:3000/](http://localhost:3000/)
-- **Network URL**: `http://192.168.11.225:3000/`
+Semua pengguna harus login terlebih dahulu untuk mengakses sistem. Tersedia juga tombol **1-Click Quick Access** di halaman login untuk pengujian cepat:
 
-Jika Anda ingin menjalankan ulang secara manual dari terminal:
-```bash
-# Menjalankan development server
-npm run dev
-
-# Membangun produksi (Production Build)
-npm run build
-```
+| Nama Pengguna | Username | Password | Role / Jabatan | Hak Akses Modul / Tab |
+|---|---|---|---|---|
+| 👑 **Riki** | `riki` | `riki123` | **Super Admin** & Head of Marketing | **Akses Penuh (All Tabs)** Termasuk Pengaturan Tim & Akun |
+| **Alvi** | `alvi` | `alvi123` | Social Media Coordinator | My Workspace, Campaigns Hub, Daily Stand-Up |
+| **Syntia** | `syntia` | `syntia123` | SocMed Execution & Ops | My Workspace, Campaigns Hub, Daily Stand-Up |
+| **Joe** | `joe` | `joe123` | Social Media Execution | My Workspace, Campaigns Hub, Daily Stand-Up |
+| **Fanny** | `fanny` | `fanny123` | Marketing & Partnership | My Workspace, Campaigns Hub, Daily Stand-Up, November Report |
 
 ---
 
-## 🌟 Fitur Utama & Panduan Pengujian
+## 👑 Fitur Super Admin (Khusus Riki)
 
-### 1. **Role Switcher (Live Preview 5 Anggota Tim)**
-Gunakan dropdown **Role Preview** di bagian atas sidebar kiri untuk beralih perspektif:
-1. **Riki (Head of Marketing)**: Melihat *Critical Attention Alert Banner* (Overdue task, Empty KOL Slot, Active Blocker), *1-Click Approval Queue*, kartu progres target KPI brand partner (Pigeon, Libby, Interbat, Molagi), dan *Team Daily Stand-Up Tracker*.
-2. **Alvi (Social Media Coordinator)**: Melihat task konten IG Photo Competition Pigeon, status stand-up harian, dan notifikasi approval.
-3. **Syntia (SocMed Execution & Ops)**: Melihat draft WA Blast jastiper, materi pengumuman Lucky Draw Libby.
-4. **Joe (Social Media Execution)**: Melihat task video reels Pigeon & cetak tent card QR Smart Loyalty kasir Interbat.
-5. **Fanny (Marketing & Partnership)**: Melihat koordinasi B2B invoice Molagi dan slot influencer mingguan.
+Sebagai **Super Admin**, Riki memiliki modul khusus di sidebar kiri: **"Pengaturan Tim & Pengguna"**:
+1. **Kelola Akun & Kredensial:**
+   - Tambah personil baru atau edit akun yang sudah ada.
+   - Mengubah nama, username login, password akun (dilengkapi tombol lihat/sembunyikan password).
+   - Mengubah jabatan / role label serta nomor WhatsApp dan email tim.
+2. **Kontrol Hak Akses Tab (RBAC):**
+   - Mengatur izin tab mana saja yang boleh dibuka oleh masing-masing personil (*Command Center, Campaigns Hub, Approval Center, Daily Stand-Up, November Report*).
+   - Anggota tim biasa hanya dapat melihat tab yang telah ditentukan oleh Riki. Tab yang tidak diizinkan otomatis tersembunyi dari menu dan dilindungi sistem proteksi rute.
+3. **Pusat Approval 1-Klik:**
+   - Menyetujui konten (*Approve*) atau meminta revisi (*Request Revision*) dengan catatan otomatis.
 
-### 2. **1-Click Live Approval Flow & Revisions**
-- Klik tombol **Approve (1-Click)** pada materi seperti poster Photo Competition Pigeon atau WA Blast Jastiper. Item langsung ter-update menjadi `Approved`, berkurang dari antrean pending, dan tercatat otomatis di **Log Audit Persetujuan**.
-- Klik tombol **Request Revision** untuk memasukkan catatan penyesuaian khusus. Status item akan beralih menjadi `Revision` dengan kotak peringatan amber bagi PIC yang ditugaskan.
+---
 
-### 3. **Critical Attention Banner (Red Alert Strip)**
-Secara otomatis mendeteksi dan menyorot:
-- **Slot KOL Kosong**: Slot KOL Minggu ke-3 (15–21 Nov) pada kampanye Pigeon.
-- **Overdue Deliverables**: Tenggat waktu pengerjaan sebelum 19 Nov 2026.
-- **Active Team Blockers**: Laporan kendala belum terselesaikan (misal: kendala konfirmasi slot momfluencer oleh Fanny) dengan tombol *1-Click Mark Resolved*.
+## 🚀 Fitur Unggulan Lainnya
 
-### 4. **Campaigns & Programs Hub (Modal 4 Tab)**
-Buka detail setiap program untuk melihat modal komprehensif:
-- **Tab 1: Program Brief & SKP**: Deskripsi promo (B1G1, Lucky Draw, Smart Loyalty point, Clay Art challenge), target angka, dan outlet yang berpartisipasi.
-- **Tab 2: Deliverables Checklist**: Daftar task, tenggat waktu, dan toggle status pengerjaan.
-- **Tab 3: Weekly KOL Matrix**: Manajemen jadwal momfluencer mingguan + form langsung untuk mengisi slot kosong.
-- **Tab 4: Event Readiness**: Kesiapan venue, briefing crew kasir, POSM cetak progress bar, dan catatan operasional.
-- Tombol **+ Add Task / Deliverable**: Menambahkan tugas baru secara real-time ke PIC mana pun.
-
-### 5. **30s Daily Check-In & Stand-Up Board**
-- Form modal cepat untuk melaporkan *Done Yesterday*, *Focus Today*, dan *Kendala/Blocker*.
-- Filter *Active Blockers Only* untuk fokus membantu menyelesaikan hambatan tim.
-
-### 6. **November 2026 Monthly Report & Executive Print View**
-- Rangkuman total pencapaian Net Sales (Realisasi vs Target), tingkat penyelesaian deliverable tim, dan status aktivasi KOL mingguan.
-- Tata letak resmi eksekutif dengan tombol **Print / Executive View** yang siap dicetak bersih (tanpa sidebar/header).
+1. **Sinkronisasi Database Cloud Realtime (Supabase):**
+   - Data tersinkronisasi otomatis antar pengguna secara live via WebSockets.
+   - Tetap mendukung mode *Offline / LocalStorage Fallback* jika koneksi database terputus.
+2. **Notifikasi WhatsApp & Telegram:**
+   - Tombol 1-klik kirim peringatan kendala (*Active Blocker*) ke WhatsApp Riki.
+   - Tombol pengingat persetujuan materi (*Approval Request*) dan pengiriman catatan revisi ke PIC via WhatsApp.
+3. **Grafik Analitik & Ekspor Laporan:**
+   - Grafik interaktif *Target vs Realisasi Net Sales*, *Distribusi Status Deliverable*, dan *Sebaran Program per Outlet Toko*.
+   - Tombol **Export Tasks CSV** dan **Export Sales CSV** (format UTF-8 BOM kompatibel Microsoft Excel).
+   - Tampilan resmi cetak laporan eksekutif (*Print / PDF*).

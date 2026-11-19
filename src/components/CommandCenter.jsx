@@ -43,7 +43,7 @@ export const CommandCenter = () => {
     setSelectedCampaignId
   } = useApp();
 
-  const isRiki = currentUser.role === 'head_of_marketing';
+  const isRiki = Boolean(currentUser?.isSuperAdmin || currentUser?.role === 'head_of_marketing');
 
   // State for revision popover in Approval Queue
   const [revisionTargetId, setRevisionTargetId] = useState(null);
