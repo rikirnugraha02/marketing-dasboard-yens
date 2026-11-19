@@ -9,6 +9,7 @@ import {
   RotateCcw,
   Sparkles,
   ChevronDown,
+  Database,
   X
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -25,7 +26,9 @@ export const Sidebar = () => {
     emptyKolSlots,
     resetAllData,
     isMobileSidebarOpen,
-    setIsMobileSidebarOpen
+    setIsMobileSidebarOpen,
+    setIsCloudModalOpen,
+    isCloudConnected
   } = useApp();
 
   const totalAlerts = pendingApprovals.length + activeBlockers.length + emptyKolSlots.length;
@@ -197,6 +200,18 @@ export const Sidebar = () => {
               <span className="text-slate-200 font-semibold">63% Cycle</span>
             </div>
           </div>
+
+          <button
+            onClick={() => setIsCloudModalOpen(true)}
+            className="mt-2.5 w-full flex items-center justify-between px-2.5 py-1.5 text-xs text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/10"
+            title="Konfigurasi Database Cloud (Supabase)"
+          >
+            <div className="flex items-center gap-2">
+              <Database className="w-3.5 h-3.5 text-[#F26522]" />
+              <span className="font-medium">Cloud Database</span>
+            </div>
+            <span className={`w-2 h-2 rounded-full ${isCloudConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+          </button>
 
           <button
             onClick={() => {

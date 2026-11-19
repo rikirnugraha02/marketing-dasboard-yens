@@ -8,6 +8,8 @@ import {
   CheckCircle2, 
   ChevronRight, 
   PlusCircle,
+  Database,
+  Cloud,
   ExternalLink
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -17,9 +19,12 @@ export const Header = () => {
   const { 
     currentUser, 
     setIsCheckinModalOpen, 
+    setIsCloudModalOpen,
+    isCloudConnected,
+    isSyncing,
     pendingApprovals, 
     activeBlockers, 
-    emptyKolSlots,
+    emptyKolSlots, 
     overdueDeliverables,
     setActiveTab,
     setIsMobileSidebarOpen
@@ -68,8 +73,26 @@ export const Header = () => {
           </div>
         </div>
 
-        {/* Right: Quick Check-in Button & Notifications & User Pill */}
-        <div className="flex items-center gap-3">
+        {/* Right: Cloud Sync Chip, Quick Check-in Button & Notifications */}
+        <div className="flex items-center gap-2.5">
+          
+          {/* Cloud Sync Status Chip */}
+          <button
+            onClick={() => setIsCloudModalOpen(true)}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+              isCloudConnected 
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100' 
+                : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+            }`}
+            title="Database Cloud Sync Settings"
+          >
+            <Database className="w-3.5 h-3.5 text-current" />
+            <span className="hidden md:inline">
+              {isCloudConnected ? 'Cloud Realtime' : 'Connect Cloud'}
+            </span>
+            <span className={`w-2 h-2 rounded-full ${isCloudConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+          </button>
+
           {/* Quick 30s Check-In CTA */}
           <button
             onClick={() => setIsCheckinModalOpen(true)}

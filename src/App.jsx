@@ -8,9 +8,10 @@ import { ApprovalCenter } from './components/ApprovalCenter';
 import { DailyCheckinBoard } from './components/DailyCheckinBoard';
 import { MonthlyReportView } from './components/MonthlyReportView';
 import { CheckinModal } from './components/CheckinModal';
+import { CloudConfigModal } from './components/CloudConfigModal';
 
 export const App = () => {
-  const { activeTab } = useApp();
+  const { activeTab, isCloudModalOpen, setIsCloudModalOpen } = useApp();
 
   const renderActiveView = () => {
     switch (activeTab) {
@@ -47,6 +48,12 @@ export const App = () => {
 
       {/* Global 30s Check-in Modal */}
       <CheckinModal />
+
+      {/* Supabase Cloud Connection & Realtime Modal */}
+      <CloudConfigModal 
+        isOpen={isCloudModalOpen} 
+        onClose={() => setIsCloudModalOpen(false)} 
+      />
     </div>
   );
 };

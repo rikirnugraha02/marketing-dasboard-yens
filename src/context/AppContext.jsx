@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
   CURRENT_DATE,
   TEAM_MEMBERS,
@@ -8,6 +8,17 @@ import {
   INITIAL_CHECKINS,
   INITIAL_AUDIT_LOGS
 } from '../data/mockData';
+import { 
+  supabase, 
+  isSupabaseConfigured 
+} from '../lib/supabaseClient';
+import {
+  fromDbCampaign, toDbCampaign,
+  fromDbDeliverable, toDbDeliverable,
+  fromDbKol, toDbKol,
+  fromDbCheckin, toDbCheckin,
+  fromDbAudit, toDbAudit
+} from '../utils/supabaseAdapter';
 
 const AppContext = createContext();
 
@@ -26,31 +37,27 @@ export const AppProvider = ({ children }) => {
     return localStorage.getItem(STORAGE_KEYS.ROLE) || 'riki';
   });
 
-  // Campaigns
+  // Main state with localStorage fallback
   const [campaigns, setCampaigns] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CAMPAIGNS);
     return saved ? JSON.parse(saved) : INITIAL_CAMPAIGNS;
   });
 
-  // Deliverables
   const [deliverables, setDeliverables] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.DELIVERABLES);
     return saved ? JSON.parse(saved) : INITIAL_DELIVERABLES;
   });
 
-  // KOL Slots
   const [kolSlots, setKolSlots] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.KOL_SLOTS);
     return saved ? JSON.parse(saved) : INITIAL_KOL_SLOTS;
   });
 
-  // Daily Check-ins
   const [checkins, setCheckins] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CHECKINS);
     return saved ? JSON.parse(saved) : INITIAL_CHECKINS;
   });
 
-  // Audit Logs
   const [auditLogs, setAuditLogs] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS);
     return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
@@ -59,10 +66,12 @@ export const AppProvider = ({ children }) => {
   // Modals & Navigation
   const [activeTab, setActiveTab] = useState('command-center');
   const [isCheckinModalOpen, setIsCheckinModalOpen] = useState(false);
+  const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
   const [selectedCampaignId, setSelectedCampaignId] = useState(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  // Sync to LocalStorage
+  // Sync to LocalStorage (Always acts as offline backup)
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.ROLE, currentUserId);
   }, [currentUserId]);
@@ -87,86 +96,187 @@ export const AppProvider = ({ children }) => {
     localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(auditLogs));
   }, [auditLogs]);
 
+  // Fetch initial data from Supabase if configured
+  const fetchCloudData = useCallback(async () => {
+    if (!isSupabaseConfigured || !supabase) return;
+
+    try {
+      setIsSyncing(true);
+
+      const [cRes, dRes, kRes, chRes, aRes] = await Promise.all([
+        supabase.from('campaigns').select('*').order('created_at', { ascending: true }),
+        supabase.from('deliverables').select('*').order('created_at', { ascending: false }),
+        supabase.from('kol_slots').select('*').order('created_at', { ascending: true }),
+        supabase.from('checkins').select('*').order('created_at', { ascending: false }),
+        supabase.from('audit_logs').select('*').order('created_at', { ascending: false })
+      ]);
+
+      if (cRes.data && cRes.data.length > 0) {
+        setCampaigns(cRes.data.map(fromDbCampaign));
+      }
+      if (dRes.data && dRes.data.length > 0) {
+        setDeliverables(dRes.data.map(fromDbDeliverable));
+      }
+      if (kRes.data && kRes.data.length > 0) {
+        setKolSlots(kRes.data.map(fromDbKol));
+      }
+      if (chRes.data && chRes.data.length > 0) {
+        setCheckins(chRes.data.map(fromDbCheckin));
+      }
+      if (aRes.data && aRes.data.length > 0) {
+        setAuditLogs(aRes.data.map(fromDbAudit));
+      }
+    } catch (err) {
+      console.warn("Supabase fetch warning, continuing with local state:", err);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, []);
+
+  // Supabase Realtime Listener Setup
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return;
+
+    fetchCloudData();
+
+    // Subscribe to all changes
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'deliverables' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setDeliverables(prev => [fromDbDeliverable(payload.new), ...prev.filter(x => x.id !== payload.new.id)]);
+          } else if (payload.eventType === 'UPDATE') {
+            setDeliverables(prev => prev.map(x => x.id === payload.new.id ? fromDbDeliverable(payload.new) : x));
+          } else if (payload.eventType === 'DELETE') {
+            setDeliverables(prev => prev.filter(x => x.id !== payload.old.id));
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'checkins' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setCheckins(prev => [fromDbCheckin(payload.new), ...prev.filter(x => x.id !== payload.new.id)]);
+          } else if (payload.eventType === 'UPDATE') {
+            setCheckins(prev => prev.map(x => x.id === payload.new.id ? fromDbCheckin(payload.new) : x));
+          } else if (payload.eventType === 'DELETE') {
+            setCheckins(prev => prev.filter(x => x.id !== payload.old.id));
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'kol_slots' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setKolSlots(prev => [...prev.filter(x => x.id !== payload.new.id), fromDbKol(payload.new)]);
+          } else if (payload.eventType === 'UPDATE') {
+            setKolSlots(prev => prev.map(x => x.id === payload.new.id ? fromDbKol(payload.new) : x));
+          } else if (payload.eventType === 'DELETE') {
+            setKolSlots(prev => prev.filter(x => x.id !== payload.old.id));
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'audit_logs' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setAuditLogs(prev => [fromDbAudit(payload.new), ...prev.filter(x => x.id !== payload.new.id)]);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchCloudData]);
+
   const currentUser = TEAM_MEMBERS.find(m => m.id === currentUserId) || TEAM_MEMBERS[0];
 
-  // Actions
-  const approveDeliverable = (deliverableId, note = "Approved by Head of Marketing") => {
+  // Actions with Supabase Cloud Sync
+  const approveDeliverable = async (deliverableId, note = "Approved by Head of Marketing") => {
+    const updatedStatus = 'Approved';
+    
+    // Optimistic local update
     setDeliverables(prev =>
-      prev.map(item => {
-        if (item.id === deliverableId) {
-          return {
-            ...item,
-            status: 'Approved',
-            revisionNotes: ''
-          };
-        }
-        return item;
-      })
+      prev.map(item => item.id === deliverableId ? { ...item, status: updatedStatus, revisionNotes: '' } : item)
     );
 
     const target = deliverables.find(d => d.id === deliverableId);
-    if (target) {
-      const newLog = {
-        id: `log-${Date.now()}`,
-        deliverableId,
-        deliverableTitle: target.title,
-        action: 'Approved',
-        actorId: currentUser.id,
-        actorName: `${currentUser.name} (${currentUser.roleLabel})`,
-        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
-        note: note || "Deliverable approved for rollout."
-      };
-      setAuditLogs(prev => [newLog, ...prev]);
+    const newLog = {
+      id: `log-${Date.now()}`,
+      deliverableId,
+      deliverableTitle: target?.title || deliverableId,
+      action: 'Approved',
+      actorId: currentUser.id,
+      actorName: `${currentUser.name} (${currentUser.roleLabel})`,
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      note: note || "Deliverable approved for rollout."
+    };
+    setAuditLogs(prev => [newLog, ...prev]);
+
+    // Push to Supabase if configured
+    if (isSupabaseConfigured && supabase) {
+      await supabase.from('deliverables').update({
+        status: updatedStatus,
+        revision_notes: ''
+      }).eq('id', deliverableId);
+
+      await supabase.from('audit_logs').insert(toDbAudit(newLog));
     }
   };
 
-  const requestRevision = (deliverableId, revisionNote) => {
+  const requestRevision = async (deliverableId, revisionNote) => {
     if (!revisionNote) return;
 
+    // Optimistic local update
     setDeliverables(prev =>
-      prev.map(item => {
-        if (item.id === deliverableId) {
-          return {
-            ...item,
-            status: 'Revision',
-            revisionNotes: revisionNote
-          };
-        }
-        return item;
-      })
+      prev.map(item => item.id === deliverableId ? { ...item, status: 'Revision', revisionNotes: revisionNote } : item)
     );
 
     const target = deliverables.find(d => d.id === deliverableId);
-    if (target) {
-      const newLog = {
-        id: `log-${Date.now()}`,
-        deliverableId,
-        deliverableTitle: target.title,
-        action: 'Revision Requested',
-        actorId: currentUser.id,
-        actorName: `${currentUser.name} (${currentUser.roleLabel})`,
-        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
-        note: revisionNote
-      };
-      setAuditLogs(prev => [newLog, ...prev]);
+    const newLog = {
+      id: `log-${Date.now()}`,
+      deliverableId,
+      deliverableTitle: target?.title || deliverableId,
+      action: 'Revision Requested',
+      actorId: currentUser.id,
+      actorName: `${currentUser.name} (${currentUser.roleLabel})`,
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      note: revisionNote
+    };
+    setAuditLogs(prev => [newLog, ...prev]);
+
+    // Push to Supabase if configured
+    if (isSupabaseConfigured && supabase) {
+      await supabase.from('deliverables').update({
+        status: 'Revision',
+        revision_notes: revisionNote
+      }).eq('id', deliverableId);
+
+      await supabase.from('audit_logs').insert(toDbAudit(newLog));
     }
   };
 
-  const updateDeliverableStatus = (deliverableId, newStatus) => {
+  const updateDeliverableStatus = async (deliverableId, newStatus) => {
     setDeliverables(prev =>
-      prev.map(item => {
-        if (item.id === deliverableId) {
-          return {
-            ...item,
-            status: newStatus
-          };
-        }
-        return item;
-      })
+      prev.map(item => item.id === deliverableId ? { ...item, status: newStatus } : item)
     );
+
+    if (isSupabaseConfigured && supabase) {
+      await supabase.from('deliverables').update({
+        status: newStatus
+      }).eq('id', deliverableId);
+    }
   };
 
-  const addDeliverable = (newDeliverable) => {
+  const addDeliverable = async (newDeliverable) => {
     const item = {
       ...newDeliverable,
       id: `del-${Date.now()}`,
@@ -174,6 +284,8 @@ export const AppProvider = ({ children }) => {
       priority: newDeliverable.priority || 'High',
       submittedAt: new Date().toISOString()
     };
+    
+    // Optimistic local update
     setDeliverables(prev => [item, ...prev]);
 
     const newLog = {
@@ -187,21 +299,33 @@ export const AppProvider = ({ children }) => {
       note: `Added task under campaign: ${item.campaignId}`
     };
     setAuditLogs(prev => [newLog, ...prev]);
-  };
 
-  const addOrUpdateKolSlot = (kolData) => {
-    if (kolData.id) {
-      setKolSlots(prev => prev.map(k => k.id === kolData.id ? { ...k, ...kolData } : k));
-    } else {
-      const newSlot = {
-        ...kolData,
-        id: `kol-${Date.now()}`
-      };
-      setKolSlots(prev => [...prev, newSlot]);
+    // Push to Supabase if configured
+    if (isSupabaseConfigured && supabase) {
+      await supabase.from('deliverables').insert(toDbDeliverable(item));
+      await supabase.from('audit_logs').insert(toDbAudit(newLog));
     }
   };
 
-  const submitCheckin = (checkinData) => {
+  const addOrUpdateKolSlot = async (kolData) => {
+    let finalItem = kolData;
+
+    if (kolData.id) {
+      setKolSlots(prev => prev.map(k => k.id === kolData.id ? { ...k, ...kolData } : k));
+    } else {
+      finalItem = {
+        ...kolData,
+        id: `kol-${Date.now()}`
+      };
+      setKolSlots(prev => [...prev, finalItem]);
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      await supabase.from('kol_slots').upsert(toDbKol(finalItem));
+    }
+  };
+
+  const submitCheckin = async (checkinData) => {
     const newCheckin = {
       ...checkinData,
       id: `chk-${Date.now()}`,
@@ -210,20 +334,33 @@ export const AppProvider = ({ children }) => {
       timestamp: new Date().toISOString(),
       resolved: !checkinData.hasBlocker
     };
+
     setCheckins(prev => [newCheckin, ...prev]);
+
+    if (isSupabaseConfigured && supabase) {
+      await supabase.from('checkins').insert(toDbCheckin(newCheckin));
+    }
   };
 
-  const resolveBlocker = (checkinId) => {
+  const resolveBlocker = async (checkinId) => {
     setCheckins(prev =>
       prev.map(c => (c.id === checkinId ? { ...c, resolved: true } : c))
     );
+
+    if (isSupabaseConfigured && supabase) {
+      await supabase.from('checkins').update({ resolved: true }).eq('id', checkinId);
+    }
   };
 
-  const updateCampaign = (updatedCampaign) => {
+  const updateCampaign = async (updatedCampaign) => {
     setCampaigns(prev => prev.map(c => c.id === updatedCampaign.id ? updatedCampaign : c));
+
+    if (isSupabaseConfigured && supabase) {
+      await supabase.from('campaigns').upsert(toDbCampaign(updatedCampaign));
+    }
   };
 
-  const resetAllData = () => {
+  const resetAllData = async () => {
     localStorage.removeItem(STORAGE_KEYS.ROLE);
     localStorage.removeItem(STORAGE_KEYS.CAMPAIGNS);
     localStorage.removeItem(STORAGE_KEYS.DELIVERABLES);
@@ -269,6 +406,10 @@ export const AppProvider = ({ children }) => {
         setActiveTab,
         isCheckinModalOpen,
         setIsCheckinModalOpen,
+        isCloudModalOpen,
+        setIsCloudModalOpen,
+        isCloudConnected: isSupabaseConfigured,
+        isSyncing,
         selectedCampaignId,
         setSelectedCampaignId,
         isMobileSidebarOpen,
