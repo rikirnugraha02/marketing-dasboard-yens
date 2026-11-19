@@ -11,10 +11,17 @@ import {
   AlertCircle,
   Sparkles,
   ShieldCheck,
-  Filter
+  Filter,
+  MessageSquare
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatDateTime, getStatusBadgeStyle, getPriorityBadgeStyle } from '../utils/formatters';
+import { 
+  openWhatsAppDirect, 
+  formatApprovalRequestMessage, 
+  formatRevisionMessage, 
+  getNotificationSettings 
+} from '../utils/notificationDispatcher';
 
 export const ApprovalCenter = () => {
   const { 
@@ -333,33 +340,74 @@ export const ApprovalCenter = () => {
                         {!isOpeningRevision && (
                           <div className="space-y-2">
                             {item.status === 'Need Approval' && (
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => approveDeliverable(item.id, "Approved directly via Approval Center")}
-                                  className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-colors"
-                                >
-                                  <Check className="w-4 h-4" />
-                                  <span>Approve (Disetujui)</span>
-                                </button>
+                              <>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => approveDeliverable(item.id, "Approved directly via Approval Center")}
+                                    className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-colors"
+                                  >
+                                    <Check className="w-4 h-4" />
+                                    <span>Approve</span>
+                                  </button>
+
+                                  <button
+                                    onClick={() => setActiveRevisionId(item.id)}
+                                    className="py-2 px-3 bg-white hover:bg-amber-50 text-amber-700 border border-amber-300 text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-colors"
+                                  >
+                                    <RotateCw className="w-3.5 h-3.5" />
+                                    <span>Minta Revisi</span>
+                                  </button>
+                                </div>
 
                                 <button
-                                  onClick={() => setActiveRevisionId(item.id)}
-                                  className="py-2 px-3 bg-white hover:bg-amber-50 text-amber-700 border border-amber-300 text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-colors"
+                                  onClick={() => {
+                                    const settings = getNotificationSettings();
+                                    const msg = formatApprovalRequestMessage({
+                                      title: item.title,
+                                      category: item.category,
+                                      picName: pic?.name || item.picId,
+                                      deadline: formatDateTime(item.deadline),
+                                      draftLink: item.draftLink,
+                                      notes: item.notes
+                                    });
+                                    openWhatsAppDirect({ phone: settings.rikiPhone, message: msg });
+                                  }}
+                                  className="w-full py-1.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-[11px] font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+                                  title="Minta persetujuan langsung ke WhatsApp Riki"
                                 >
-                                  <RotateCw className="w-3.5 h-3.5" />
-                                  <span>Minta Revisi</span>
+                                  <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>Colek / Minta Approval via WA</span>
                                 </button>
-                              </div>
+                              </>
                             )}
 
                             {item.status === 'Revision' && (
-                              <button
-                                onClick={() => approveDeliverable(item.id, "Approved after revision check")}
-                                className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-1.5"
-                              >
-                                <Check className="w-4 h-4" />
-                                <span>Tandai Selesai & Approve</span>
-                              </button>
+                              <div className="space-y-2">
+                                <button
+                                  onClick={() => approveDeliverable(item.id, "Approved after revision check")}
+                                  className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-1.5"
+                                >
+                                  <Check className="w-4 h-4" />
+                                  <span>Tandai Selesai & Approve</span>
+                                </button>
+
+                                {item.revisionNotes && (
+                                  <button
+                                    onClick={() => {
+                                      const msg = formatRevisionMessage({
+                                        title: item.title,
+                                        picName: pic?.name || item.picId,
+                                        revisionNotes: item.revisionNotes
+                                      });
+                                      openWhatsAppDirect({ phone: pic?.phone || '', message: msg });
+                                    }}
+                                    className="w-full py-1.5 px-3 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-[11px] font-bold rounded-lg flex items-center justify-center gap-1.5"
+                                  >
+                                    <MessageSquare className="w-3.5 h-3.5 text-amber-600" />
+                                    <span>Kirim Catatan via WA ke {pic?.name}</span>
+                                  </button>
+                                )}
+                              </div>
                             )}
 
                             {item.status === 'Approved' && (

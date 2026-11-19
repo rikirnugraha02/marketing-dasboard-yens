@@ -9,9 +9,16 @@ import { DailyCheckinBoard } from './components/DailyCheckinBoard';
 import { MonthlyReportView } from './components/MonthlyReportView';
 import { CheckinModal } from './components/CheckinModal';
 import { CloudConfigModal } from './components/CloudConfigModal';
+import { NotificationSettingsModal } from './components/NotificationSettingsModal';
 
 export const App = () => {
-  const { activeTab, isCloudModalOpen, setIsCloudModalOpen } = useApp();
+  const { 
+    activeTab, 
+    isCloudModalOpen, 
+    setIsCloudModalOpen, 
+    isNotifModalOpen, 
+    setIsNotifModalOpen 
+  } = useApp();
 
   const renderActiveView = () => {
     switch (activeTab) {
@@ -53,6 +60,12 @@ export const App = () => {
       <CloudConfigModal 
         isOpen={isCloudModalOpen} 
         onClose={() => setIsCloudModalOpen(false)} 
+      />
+
+      {/* WhatsApp & Telegram Notification Settings Modal */}
+      <NotificationSettingsModal
+        isOpen={isNotifModalOpen}
+        onClose={() => setIsNotifModalOpen(false)}
       />
     </div>
   );

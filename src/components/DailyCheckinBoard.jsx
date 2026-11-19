@@ -9,10 +9,12 @@ import {
   Filter, 
   CheckCircle2, 
   ShieldAlert,
-  ArrowRight
+  ArrowRight,
+  MessageSquare
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatDateTime } from '../utils/formatters';
+import { openWhatsAppDirect, formatBlockerMessage, getNotificationSettings } from '../utils/notificationDispatcher';
 
 export const DailyCheckinBoard = () => {
   const { 
@@ -248,14 +250,34 @@ export const DailyCheckinBoard = () => {
                     </div>
 
                     {!item.resolved && (
-                      <button
-                        onClick={() => resolveBlocker(item.id)}
-                        className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 shrink-0 transition-colors"
-                        title="Tandai blocker ini selesai dibantu"
-                      >
-                        <Check className="w-4 h-4" />
-                        <span>1-Click Mark Resolved</span>
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => {
+                            const settings = getNotificationSettings();
+                            const msg = formatBlockerMessage({
+                              userName: member?.name || item.userId,
+                              roleLabel: member?.roleLabel || 'Tim Marketing',
+                              blockerDetail: item.blockerDetail,
+                              focusToday: item.focusToday
+                            });
+                            openWhatsAppDirect({ phone: settings.rikiPhone, message: msg });
+                          }}
+                          className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-colors"
+                          title="Kirim detail kendala ini ke WhatsApp Riki (Head of Marketing)"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>Kirim ke WA Riki</span>
+                        </button>
+
+                        <button
+                          onClick={() => resolveBlocker(item.id)}
+                          className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-colors"
+                          title="Tandai blocker ini selesai dibantu"
+                        >
+                          <Check className="w-4 h-4" />
+                          <span>Mark Resolved</span>
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}

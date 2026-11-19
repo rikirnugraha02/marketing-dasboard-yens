@@ -67,6 +67,7 @@ export const AppProvider = ({ children }) => {
   const [activeTab, setActiveTab] = useState('command-center');
   const [isCheckinModalOpen, setIsCheckinModalOpen] = useState(false);
   const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
+  const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
   const [selectedCampaignId, setSelectedCampaignId] = useState(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -408,6 +409,8 @@ export const AppProvider = ({ children }) => {
         setIsCheckinModalOpen,
         isCloudModalOpen,
         setIsCloudModalOpen,
+        isNotifModalOpen,
+        setIsNotifModalOpen,
         isCloudConnected: isSupabaseConfigured,
         isSyncing,
         selectedCampaignId,

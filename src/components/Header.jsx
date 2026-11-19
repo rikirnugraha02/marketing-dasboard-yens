@@ -10,6 +10,7 @@ import {
   PlusCircle,
   Database,
   Cloud,
+  MessageSquare,
   ExternalLink
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -20,6 +21,7 @@ export const Header = () => {
     currentUser, 
     setIsCheckinModalOpen, 
     setIsCloudModalOpen,
+    setIsNotifModalOpen,
     isCloudConnected,
     isSyncing,
     pendingApprovals, 
@@ -91,6 +93,16 @@ export const Header = () => {
               {isCloudConnected ? 'Cloud Realtime' : 'Connect Cloud'}
             </span>
             <span className={`w-2 h-2 rounded-full ${isCloudConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+          </button>
+
+          {/* WhatsApp / Telegram Notification Settings Button */}
+          <button
+            onClick={() => setIsNotifModalOpen(true)}
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 border border-slate-200 text-slate-700 transition-colors"
+            title="Pengaturan Notifikasi WhatsApp & Telegram"
+          >
+            <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+            <span className="hidden lg:inline">WA Alert</span>
           </button>
 
           {/* Quick 30s Check-In CTA */}

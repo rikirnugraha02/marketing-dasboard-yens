@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   FileText, 
   Printer, 
+  Download, 
   TrendingUp, 
   CheckCircle2, 
   Users, 
@@ -9,13 +10,18 @@ import {
   Sparkles, 
   Calendar,
   Award,
-  ChevronRight
+  ChevronRight,
+  BarChart2,
+  Table
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatIDR, formatIDRShort, formatDateOnly } from '../utils/formatters';
+import { exportDeliverablesToCSV, exportCampaignFinancialsToCSV } from '../utils/exportUtils';
+import { AnalyticsCharts } from './AnalyticsCharts';
 
 export const MonthlyReportView = () => {
   const { campaigns, deliverables, kolSlots, checkins, teamMembers } = useApp();
+  const [reportTab, setReportTab] = useState('summary'); // 'summary' | 'charts'
 
   // Aggregate Metrics
   const totalSalesTarget = campaigns.reduce((acc, c) => acc + (c.targetValue > 1000 ? c.targetValue : 0), 0);
@@ -39,7 +45,7 @@ export const MonthlyReportView = () => {
     <div className="space-y-6">
       
       {/* Top Action Bar (Hidden during print) */}
-      <div className="no-print bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="no-print bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <FileText className="w-5 h-5 text-[#F26522]" />
@@ -48,21 +54,83 @@ export const MonthlyReportView = () => {
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Laporan agregasi KPI, progres kampanye brand partner, dan utilisasi sumber daya tim marketing.
+            Laporan performa penjualan retail, utilisasi sumber daya tim, dan visualisasi analitik interaktif.
           </p>
         </div>
 
+        {/* Action Buttons: Export CSV & Print */}
+        <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto">
+          {/* CSV Deliverables */}
+          <button
+            onClick={() => exportDeliverablesToCSV(deliverables, teamMembers, campaigns)}
+            className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-colors"
+            title="Download Spreadsheet Deliverables (.csv)"
+          >
+            <Download className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Export Tasks CSV</span>
+          </button>
+
+          {/* CSV Financials */}
+          <button
+            onClick={() => exportCampaignFinancialsToCSV(campaigns)}
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-colors"
+            title="Download Spreadsheet Keuangan Campaign (.csv)"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-600" />
+            <span>Export Sales CSV</span>
+          </button>
+
+          {/* Print PDF */}
+          <button
+            onClick={handlePrint}
+            className="px-4 py-2 bg-[#1B365D] hover:bg-[#24477A] text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-colors"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span>Print / Executive PDF</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Tab Switcher: Executive Document vs Interactive Visual Charts */}
+      <div className="no-print flex items-center gap-2 border-b border-slate-200 pb-2">
         <button
-          onClick={handlePrint}
-          className="px-4 py-2.5 bg-[#1B365D] hover:bg-[#24477A] text-white text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all self-start sm:self-auto"
+          onClick={() => setReportTab('summary')}
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 ${
+            reportTab === 'summary'
+              ? 'bg-[#1B365D] text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
         >
-          <Printer className="w-4 h-4" />
-          <span>Print / Executive View</span>
+          <Table className="w-4 h-4" />
+          <span>Laporan Eksekutif Resmi</span>
+        </button>
+
+        <button
+          onClick={() => setReportTab('charts')}
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 ${
+            reportTab === 'charts'
+              ? 'bg-[#1B365D] text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <BarChart2 className="w-4 h-4" />
+          <span>Grafik & Analitik Visual</span>
         </button>
       </div>
 
-      {/* Printable Report Document Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-10 space-y-8">
+      {/* VIEW 1: INTERACTIVE CHARTS */}
+      {reportTab === 'charts' && (
+        <div className="no-print">
+          <AnalyticsCharts 
+            campaigns={campaigns} 
+            deliverables={deliverables} 
+            kolSlots={kolSlots} 
+          />
+        </div>
+      )}
+
+      {/* VIEW 2: OFFICIAL PRINTABLE EXECUTIVE DOCUMENT (Always printable) */}
+      <div className={`${reportTab === 'summary' ? 'block' : 'hidden print:block'} bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-10 space-y-8`}>
         
         {/* Document Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pb-6 border-b-2 border-slate-900">
